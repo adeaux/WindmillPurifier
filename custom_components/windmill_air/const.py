@@ -51,6 +51,8 @@ CONF_AUTO_THRESHOLD_2 = "auto_threshold_2"
 CONF_AUTO_THRESHOLD_3 = "auto_threshold_3"
 # Dead-band (in AQI units) applied around each boundary to stop speed flapping.
 CONF_AUTO_HYSTERESIS = "auto_hysteresis"
+# Lowest speed auto may select; it never drops below this even at low AQI.
+CONF_AUTO_MIN_LEVEL = "auto_min_level"
 
 # --- Defaults --------------------------------------------------------------
 # The per-model pin layout / speed count lives in models.py; these module-level
@@ -76,6 +78,7 @@ DEFAULT_AUTO_THRESHOLD_1 = 50
 DEFAULT_AUTO_THRESHOLD_2 = 100
 DEFAULT_AUTO_THRESHOLD_3 = 150
 DEFAULT_AUTO_HYSTERESIS = 10
+DEFAULT_AUTO_MIN_LEVEL = 1
 
 # --- Mode-pin enum values (device firmware behavior) ---------------------
 MODE_ECO = 5

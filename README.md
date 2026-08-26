@@ -148,7 +148,9 @@ current speed. (Other AQI wordings — "Unhealthy for Sensitive Groups", "Very U
 The category is converted to a representative AQI and passed through three tunable
 **thresholds** (defaults 50 / 100 / 150, on the 0–500 scale) that decide which status bumps
 which speed; a **hysteresis** dead-band (default 10) eases the speed back down only after the
-air quality improves past a threshold. Adjust both in the **Configure** dialog — the defaults
+air quality improves past a threshold; a **minimum fan speed** (default 1) sets a floor auto
+never drops below, e.g. set it to 2 to keep more air moving even when the air is Good.
+Adjust all of these in the **Configure** dialog — the defaults
 give the table above and rarely need changing. The preset can be turned off with the
 **Enable the "auto" preset** option (it also hides if no category pin is mapped). Auto state
 is in-memory, so it resets to manual after a Home Assistant restart or an options change —

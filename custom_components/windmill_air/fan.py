@@ -31,6 +31,7 @@ from homeassistant.util.percentage import (
 from .const import (
     CONF_AQI_CATEGORY_PIN,
     CONF_AUTO_HYSTERESIS,
+    CONF_AUTO_MIN_LEVEL,
     CONF_AUTO_PRESET_ENABLED,
     CONF_AUTO_THRESHOLD_1,
     CONF_AUTO_THRESHOLD_2,
@@ -40,6 +41,7 @@ from .const import (
     CONF_SLEEP_SUBMODE_PIN,
     CONF_SPEED_COUNT,
     DEFAULT_AUTO_HYSTERESIS,
+    DEFAULT_AUTO_MIN_LEVEL,
     DEFAULT_AUTO_PRESET_ENABLED,
     DEFAULT_AUTO_THRESHOLD_1,
     DEFAULT_AUTO_THRESHOLD_2,
@@ -65,26 +67,33 @@ def auto_target_speed(
     speed_count: int,
     current: int | None,
     hysteresis: int,
+    min_level: int = 1,
 ) -> int:
     """Pick a fan speed (1..speed_count) for an AQI reading, with hysteresis.
 
     ``thresholds`` is an ascending list of AQI boundaries: the naive speed is
     ``1 + (how many thresholds the AQI meets)``, clamped to ``speed_count``.
     ``current`` is the speed auto last commanded (``None`` on first engage).
+    ``min_level`` floors the result: auto never selects below it, however low
+    the AQI.
 
     Hysteresis is applied on the way **down only**, so the purifier ramps up
     promptly and is slow to ease off: a step **up** happens as soon as the AQI
     reaches a threshold, while a step **down** needs the AQI to fall
     ``hysteresis`` below the boundary; in between, the speed holds.
     """
+    floor = max(1, min(min_level, speed_count))
     if not thresholds:
-        return 1
+        return floor
     top = len(thresholds) - 1
     naive = 1 + sum(1 for t in thresholds if aqi >= t)
-    naive = max(1, min(naive, speed_count))
+    # Flooring here (not on the return) means at the floor naive == current,
+    # so hysteresis math above the floor still uses real boundaries and the
+    # speed can never oscillate at or below the floor.
+    naive = max(floor, min(naive, speed_count))
     if current is None:
         return naive
-    current = max(1, min(current, speed_count))
+    current = max(floor, min(current, speed_count))
     if naive > current:
         # Rising: step up as soon as the AQI clears the threshold (no dead-band).
         return naive
@@ -178,6 +187,15 @@ class WindmillFan(WindmillEntity, FanEntity):
         self._auto_hysteresis: int = int(
             options.get(CONF_AUTO_HYSTERESIS, DEFAULT_AUTO_HYSTERESIS)
         )
+        # Clamp to the (already-clamped) speed count so a stored floor above a
+        # smaller speed count can't push auto past the top of the slider.
+        self._auto_min_level: int = max(
+            1,
+            min(
+                int(options.get(CONF_AUTO_MIN_LEVEL, DEFAULT_AUTO_MIN_LEVEL)),
+                self._speed_count,
+            ),
+        )
         # "auto" has no V3 value: track it here, plus the speed we last drove.
         self._auto_engaged = False
         self._auto_speed: int | None = None
@@ -270,6 +288,7 @@ class WindmillFan(WindmillEntity, FanEntity):
             self._speed_count,
             self._auto_speed,
             self._auto_hysteresis,
+            min_level=self._auto_min_level,
         )
         self._auto_speed = target
         # Idempotent: only write when V3 differs, so the optimistic-update
@@ -343,6 +362,7 @@ class WindmillFan(WindmillEntity, FanEntity):
                 self._speed_count,
                 self._auto_speed,
                 self._auto_hysteresis,
+                min_level=self._auto_min_level,
             )
             self._auto_speed = target
             await self._write(self._mode_pin, target)

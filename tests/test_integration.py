@@ -266,6 +266,21 @@ async def test_auto_follows_category_across_a_poll(
     assert hass.states.get("fan.windmill").attributes["preset_mode"] == "auto"
 
 
+async def test_auto_min_level_floors_speed(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    # "Good" maps to speed 1, but a configured floor of 2 must win: engaging
+    # auto from a seeded speed 1 writes speed 2 and never writes speed 1.
+    entry = await _setup_entry(
+        hass, aioclient_mock, options={"auto_min_level": 2}
+    )
+    await _engage_auto(hass, aioclient_mock, entry, category="Good", seed_speed=1)
+
+    assert any("v3=2" in q for q in _last_updates(aioclient_mock))
+    assert not any("v3=1" in q for q in _last_updates(aioclient_mock))
+    assert hass.states.get("fan.windmill").attributes["preset_mode"] == "auto"
+
+
 async def test_manual_speed_exits_auto(
     hass: HomeAssistant, aioclient_mock
 ) -> None:

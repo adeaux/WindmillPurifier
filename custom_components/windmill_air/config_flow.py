@@ -27,6 +27,7 @@ from .const import (
     CONF_AQI_CATEGORY_PIN,
     CONF_AQI_PIN,
     CONF_AUTO_HYSTERESIS,
+    CONF_AUTO_MIN_LEVEL,
     CONF_AUTO_PRESET_ENABLED,
     CONF_AUTO_THRESHOLD_1,
     CONF_AUTO_THRESHOLD_2,
@@ -43,6 +44,7 @@ from .const import (
     CONF_TOKEN,
     CONF_UPDATE_INTERVAL,
     DEFAULT_AUTO_HYSTERESIS,
+    DEFAULT_AUTO_MIN_LEVEL,
     DEFAULT_AUTO_PRESET_ENABLED,
     DEFAULT_AUTO_THRESHOLD_1,
     DEFAULT_AUTO_THRESHOLD_2,
@@ -247,6 +249,15 @@ class WindmillOptionsFlow(OptionsFlow):
                         CONF_AUTO_HYSTERESIS, DEFAULT_AUTO_HYSTERESIS
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                # Floor for the auto preset; the fan entity re-clamps it to the
+                # configured speed count (edited in this same form).
+                vol.Required(
+                    CONF_AUTO_MIN_LEVEL,
+                    default=min(
+                        options.get(CONF_AUTO_MIN_LEVEL, DEFAULT_AUTO_MIN_LEVEL),
+                        MODE_ECO - 1,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=MODE_ECO - 1)),
                 vol.Required(
                     CONF_UPDATE_INTERVAL,
                     default=options.get(
