@@ -31,7 +31,6 @@ from homeassistant.util.percentage import (
 from .const import (
     CONF_AQI_CATEGORY_PIN,
     CONF_AUTO_HYSTERESIS,
-    CONF_AUTO_MIN_LEVEL,
     CONF_AUTO_PRESET_ENABLED,
     CONF_AUTO_THRESHOLD_1,
     CONF_AUTO_THRESHOLD_2,
@@ -41,7 +40,6 @@ from .const import (
     CONF_SLEEP_SUBMODE_PIN,
     CONF_SPEED_COUNT,
     DEFAULT_AUTO_HYSTERESIS,
-    DEFAULT_AUTO_MIN_LEVEL,
     DEFAULT_AUTO_PRESET_ENABLED,
     DEFAULT_AUTO_THRESHOLD_1,
     DEFAULT_AUTO_THRESHOLD_2,
@@ -187,15 +185,6 @@ class WindmillFan(WindmillEntity, FanEntity):
         self._auto_hysteresis: int = int(
             options.get(CONF_AUTO_HYSTERESIS, DEFAULT_AUTO_HYSTERESIS)
         )
-        # Clamp to the (already-clamped) speed count so a stored floor above a
-        # smaller speed count can't push auto past the top of the slider.
-        self._auto_min_level: int = max(
-            1,
-            min(
-                int(options.get(CONF_AUTO_MIN_LEVEL, DEFAULT_AUTO_MIN_LEVEL)),
-                self._speed_count,
-            ),
-        )
         # "auto" has no V3 value: track it here, plus the speed we last drove.
         self._auto_engaged = False
         self._auto_speed: int | None = None
@@ -288,7 +277,7 @@ class WindmillFan(WindmillEntity, FanEntity):
             self._speed_count,
             self._auto_speed,
             self._auto_hysteresis,
-            min_level=self._auto_min_level,
+            min_level=self.coordinator.auto_min_level,
         )
         self._auto_speed = target
         # Idempotent: only write when V3 differs, so the optimistic-update
@@ -362,7 +351,7 @@ class WindmillFan(WindmillEntity, FanEntity):
                 self._speed_count,
                 self._auto_speed,
                 self._auto_hysteresis,
-                min_level=self._auto_min_level,
+                min_level=self.coordinator.auto_min_level,
             )
             self._auto_speed = target
             await self._write(self._mode_pin, target)
