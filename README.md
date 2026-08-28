@@ -93,6 +93,7 @@ config entry keeps its own model and pin mapping.
 | `fan.windmill…` | V0 power, V3 mode, V16 category | 4-speed slider + auto / Eco / Sleep presets |
 | `sensor.…air_quality_index` | V1 | numeric AQI 0–500 (matches the Windmill app) |
 | `sensor.…air_quality` | V16 | category: Good / Moderate / … (drives the auto preset) |
+| `number.…auto_minimum_speed` | — | floor for the auto preset (see below) |
 | `switch.…child_lock` | V11 | |
 | `switch.…display_auto_dim` | V5 | LED auto-fade after interaction |
 | `switch.…beep` | V6 | audible feedback |
@@ -148,13 +149,21 @@ current speed. (Other AQI wordings — "Unhealthy for Sensitive Groups", "Very U
 The category is converted to a representative AQI and passed through three tunable
 **thresholds** (defaults 50 / 100 / 150, on the 0–500 scale) that decide which status bumps
 which speed; a **hysteresis** dead-band (default 10) eases the speed back down only after the
-air quality improves past a threshold; a **minimum fan speed** (default 1) sets a floor auto
-never drops below, e.g. set it to 2 to keep more air moving even when the air is Good.
-Adjust all of these in the **Configure** dialog — the defaults
+air quality improves past a threshold. Adjust both in the **Configure** dialog — the defaults
 give the table above and rarely need changing. The preset can be turned off with the
 **Enable the "auto" preset** option (it also hides if no category pin is mapped). Auto state
 is in-memory, so it resets to manual after a Home Assistant restart or an options change —
 just re-select Auto.
+
+### Minimum auto speed
+
+The **Auto minimum speed** number entity on the device (default 1) is a floor auto never
+drops below — set it to 2 to keep more air moving even when the air is Good. It's a live
+entity rather than a Configure option so it can be changed from dashboards, scripts, and
+automations (`number.set_value`); a change applies immediately, even while auto is engaged,
+and the value survives restarts. It doesn't appear in Apple Home (HomeKit's air-purifier
+accessory has no slot for it), but you can get indirect Home-app control by exposing an
+`input_boolean` to HomeKit and letting an automation call `number.set_value` when it flips.
 
 ## Air quality readout (PM2.5) — status
 

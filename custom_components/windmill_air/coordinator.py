@@ -17,6 +17,7 @@ from .const import (
     CONF_MODEL,
     CONF_UPDATE_INTERVAL,
     DEFAULT_AQI_CATEGORY_PIN,
+    DEFAULT_AUTO_MIN_LEVEL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     LOGGER,
@@ -53,6 +54,9 @@ class WindmillCoordinator(DataUpdateCoordinator[WindmillData]):
         # shown for the device (see models.py). Entries predating models fall
         # back to the default model.
         self.model: WindmillModel = get_model(entry.data.get(CONF_MODEL))
+        # Floor for the emulated auto preset. Owned (set and restored) by the
+        # auto-minimum-speed number entity; read by the fan on every auto step.
+        self.auto_min_level: int = DEFAULT_AUTO_MIN_LEVEL
 
     def _configured_pins(self) -> list[str]:
         """Pin names explicitly mapped in the options (keys ending in _pin)."""
