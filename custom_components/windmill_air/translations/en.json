@@ -30,7 +30,7 @@
     "step": {
       "init": {
         "title": "Pin mapping",
-        "description": "Map Blynk datastreams (pins) to functions. Leave a field empty to disable that entity. Unmapped pins are exposed as diagnostic sensors — watch them while pressing buttons in the Windmill app to identify each function.\n\nThe Mode pin holds the fan speed (1..N) plus Eco (5) and Sleep (6); the Sleep sub-mode pin selects Whisper (1) or White noise (2).\n\nThe \"auto\" preset is emulated by the integration: while active it sets the fan speed from the air-quality category (Good/Moderate/Bad/Unhealthy). The three thresholds map that status to a speed; hysteresis eases the speed back down only after the air quality improves past a threshold.\n\nCurrent values: {snapshot}",
+        "description": "Map Blynk datastreams (pins) to functions. Leave a field empty to disable that entity. Unmapped pins are exposed as diagnostic sensors — watch them while pressing buttons in the Windmill app to identify each function.\n\nThe Mode pin holds the fan speed (1..N) plus Eco (5) and Sleep (6); the Sleep sub-mode pin selects Whisper (1) or White noise (2).\n\nThe \"auto\" preset is emulated by the integration: while active it sets the fan speed from the air-quality category (Good/Moderate/Bad/Unhealthy). The three thresholds map that status to a speed; hysteresis eases the speed back down only after the air quality improves past a threshold. A minimum auto speed can be set on the device's \"Auto minimum speed\" number entity.\n\nCurrent values: {snapshot}",
         "data": {
           "power_pin": "Power pin",
           "mode_pin": "Mode pin (fan speed + Eco/Sleep)",

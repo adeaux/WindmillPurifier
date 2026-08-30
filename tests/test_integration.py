@@ -142,6 +142,9 @@ async def test_entities_created(hass: HomeAssistant, aioclient_mock) -> None:
     ]
     assert fan.attributes["preset_mode"] is None  # numbered speed, not a preset
 
+    # The auto-preset floor, a RestoreNumber at its default
+    assert hass.states.get("number.windmill_auto_minimum_speed").state == "1"
+
     # Switches from the default pin mapping
     assert hass.states.get("switch.windmill_child_lock").state == "off"  # v11 == 0
     assert hass.states.get("switch.windmill_display_auto_dim").state == "on"  # v5 == 1
@@ -264,6 +267,80 @@ async def test_auto_follows_category_across_a_poll(
     )
     assert any("v3=4" in q for q in _last_updates(aioclient_mock))
     assert hass.states.get("fan.windmill").attributes["preset_mode"] == "auto"
+
+
+async def _set_min_level(hass, value):
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": "number.windmill_auto_minimum_speed", "value": value},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+
+async def test_auto_min_level_floors_speed(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    # "Good" maps to speed 1, but a floor of 2 must win: engaging auto from a
+    # seeded speed 1 writes speed 2 and never writes speed 1.
+    entry = await _setup_entry(hass, aioclient_mock)
+    await _set_min_level(hass, 2)
+    await _engage_auto(hass, aioclient_mock, entry, category="Good", seed_speed=1)
+
+    assert any("v3=2" in q for q in _last_updates(aioclient_mock))
+    assert not any("v3=1" in q for q in _last_updates(aioclient_mock))
+    assert hass.states.get("fan.windmill").attributes["preset_mode"] == "auto"
+
+
+async def test_auto_min_level_change_applies_while_engaged(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    entry = await _setup_entry(hass, aioclient_mock)
+    # Good air, seed 2: auto steps down and drives speed 1.
+    await _engage_auto(hass, aioclient_mock, entry, category="Good", seed_speed=2)
+    assert any("v3=1" in q for q in _last_updates(aioclient_mock))
+
+    # Raising the floor while engaged re-drives the speed immediately (via the
+    # coordinator's listeners) — no poll happens between set_value and here.
+    aioclient_mock.clear_requests()
+    mock_cloud(aioclient_mock, pins={**PINS, "v3": 1}, label="Good")
+    await _set_min_level(hass, 3)
+
+    assert any("v3=3" in q for q in _last_updates(aioclient_mock))
+    assert hass.states.get("fan.windmill").attributes["preset_mode"] == "auto"
+    assert hass.states.get("number.windmill_auto_minimum_speed").state == "3"
+
+
+async def test_auto_min_level_restored_after_restart(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    from homeassistant.core import State
+    from pytest_homeassistant_custom_component.common import (
+        mock_restore_cache_with_extra_data,
+    )
+
+    mock_restore_cache_with_extra_data(
+        hass,
+        [
+            (
+                State("number.windmill_auto_minimum_speed", "3"),
+                {
+                    "native_max_value": 4.0,
+                    "native_min_value": 1.0,
+                    "native_step": 1.0,
+                    "native_unit_of_measurement": None,
+                    "native_value": 3.0,
+                },
+            )
+        ],
+    )
+    entry = await _setup_entry(hass, aioclient_mock)
+    assert hass.states.get("number.windmill_auto_minimum_speed").state == "3"
+
+    # The restored floor drives the very first auto write.
+    await _engage_auto(hass, aioclient_mock, entry, category="Good", seed_speed=1)
+    assert any("v3=3" in q for q in _last_updates(aioclient_mock))
 
 
 async def test_manual_speed_exits_auto(
