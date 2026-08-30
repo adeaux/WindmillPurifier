@@ -11,7 +11,12 @@ from .api import WindmillAirApi
 from .const import CONF_TOKEN, DOMAIN
 from .coordinator import WindmillCoordinator
 
-PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [
+    Platform.FAN,
+    Platform.NUMBER,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

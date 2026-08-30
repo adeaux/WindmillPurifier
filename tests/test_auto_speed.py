@@ -64,6 +64,60 @@ def test_speed_count_above_thresholds_does_not_index_error():
 
 
 @pytest.mark.parametrize(
+    ("aqi", "expected"),
+    [
+        (0, 1),
+        (49, 1),
+        (50, 2),
+        (99, 2),
+        (100, 3),
+        (149, 3),
+        (150, 4),
+        (500, 4),
+    ],
+)
+def test_min_level_1_matches_default(aqi, expected):
+    # Explicit min_level=1 is byte-for-byte the default behavior.
+    assert (
+        auto_target_speed(aqi, THRESHOLDS, SPEED_COUNT, None, HYST, min_level=1)
+        == expected
+    )
+
+
+def test_min_level_floors_low_aqi():
+    # Good air (AQI 25) would pick speed 1; a floor of 2 keeps it at 2.
+    assert auto_target_speed(25, THRESHOLDS, SPEED_COUNT, None, HYST, min_level=2) == 2
+
+
+def test_min_level_no_oscillation_at_floor():
+    # Sitting at the floor with low AQI: naive == current, so it just holds.
+    assert auto_target_speed(25, THRESHOLDS, SPEED_COUNT, 2, HYST, min_level=2) == 2
+    assert auto_target_speed(0, THRESHOLDS, SPEED_COUNT, 2, HYST, min_level=2) == 2
+
+
+def test_min_level_raises_current_below_floor():
+    # Engaging auto while a manual speed 1 is seeded: floor wins immediately.
+    assert auto_target_speed(25, THRESHOLDS, SPEED_COUNT, 1, HYST, min_level=2) == 2
+
+
+def test_min_level_keeps_hysteresis_above_floor():
+    # With floor 2, stepping 3 -> 2 still uses the real boundary (100 - hyst)...
+    assert auto_target_speed(95, THRESHOLDS, SPEED_COUNT, 3, HYST, min_level=2) == 3
+    assert auto_target_speed(89, THRESHOLDS, SPEED_COUNT, 3, HYST, min_level=2) == 2
+    # ...and rising is still immediate.
+    assert auto_target_speed(100, THRESHOLDS, SPEED_COUNT, 2, HYST, min_level=2) == 3
+
+
+def test_min_level_clamped_to_speed_count():
+    # A floor above the speed count can't push past the top of the slider.
+    assert auto_target_speed(0, THRESHOLDS, 2, None, HYST, min_level=4) == 2
+
+
+def test_min_level_no_thresholds_returns_floor():
+    assert auto_target_speed(200, [], SPEED_COUNT, 3, HYST, min_level=3) == 3
+
+
+@pytest.mark.parametrize(
     ("label", "expected_speed"),
     [
         ("Good", 1),  # -> 25

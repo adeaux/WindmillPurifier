@@ -76,6 +76,9 @@ DEFAULT_AUTO_THRESHOLD_1 = 50
 DEFAULT_AUTO_THRESHOLD_2 = 100
 DEFAULT_AUTO_THRESHOLD_3 = 150
 DEFAULT_AUTO_HYSTERESIS = 10
+# Floor for the auto preset. Not an option: it is the initial value of the
+# "Auto minimum speed" number entity (see number.py), which owns the setting.
+DEFAULT_AUTO_MIN_LEVEL = 1
 
 # --- Mode-pin enum values (device firmware behavior) ---------------------
 MODE_ECO = 5
