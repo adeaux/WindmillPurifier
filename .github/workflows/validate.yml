@@ -22,6 +22,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # brands is validated at hacs/default submission time via a separate
-          # home-assistant/brands PR, so skip it in CI.
-          ignore: brands
