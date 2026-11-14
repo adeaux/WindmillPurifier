@@ -14,7 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONCENTRATION_MICROGRAMS_PER_CUBIC_METER, EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -34,6 +34,19 @@ from .coordinator import WindmillCoordinator
 from .entity import WindmillEntity
 from .models import WindmillModel
 from .util import as_float
+
+# Home Assistant 2026.8 moved the µg/m³ unit to UnitOfDensity and deprecated the
+# old constant (removed in 2027.8). Take the unit from whichever the running
+# version provides, so its exact spelling always matches what the PM2.5 device
+# class expects on that version.
+try:
+    from homeassistant.const import UnitOfDensity
+
+    PM25_UNIT: str = UnitOfDensity.MICROGRAMS_PER_CUBIC_METER
+except ImportError:  # Home Assistant before 2026.8
+    from homeassistant.const import (
+        CONCENTRATION_MICROGRAMS_PER_CUBIC_METER as PM25_UNIT,
+    )
 
 
 def _mapped_pins(entry: ConfigEntry, model: WindmillModel) -> set[str]:
@@ -85,7 +98,7 @@ async def async_setup_entry(
                 suffix="pm25",
                 name="PM2.5",
                 device_class=SensorDeviceClass.PM25,
-                unit=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+                unit=PM25_UNIT,
             )
         )
 

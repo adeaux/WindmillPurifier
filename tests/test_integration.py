@@ -82,10 +82,13 @@ async def test_device_registry_shows_model(
     entry = await _setup_entry(
         hass, aioclient_mock, data={"token": TOKEN, "model": "sap1v1"}
     )
-    device = dr.async_get(hass).async_get_device(
-        identifiers={(DOMAIN, entry.entry_id)}
-    )
-    assert device is not None
+    # Look the device up through its config entry: this works on every
+    # supported Home Assistant, unlike the identifier lookup helpers, which
+    # were renamed in 2026.
+    devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert len(devices) == 1
+    device = devices[0]
+    assert (DOMAIN, entry.entry_id) in device.identifiers
     assert device.manufacturer == "Windmill"
     assert device.model == "Air Purifier"
     assert device.model_id == "SAP1V1"
@@ -405,6 +408,23 @@ async def test_switch_toggle_writes_pin(hass: HomeAssistant, aioclient_mock) -> 
     )
     assert any("v11=1" in q for q in _last_updates(aioclient_mock))
     assert hass.states.get("switch.windmill_child_lock").state == "on"
+
+
+async def test_pm25_sensor_uses_current_unit_without_deprecation(
+    hass: HomeAssistant, aioclient_mock, caplog
+) -> None:
+    # Mapping a PM2.5 pin creates a sensor whose unit comes from the running
+    # Home Assistant, and importing it must not touch a deprecated constant.
+    await _setup_entry(hass, aioclient_mock, options={"pm25_pin": "v7"})
+
+    pm25 = hass.states.get("sensor.windmill_pm2_5")
+    assert pm25 is not None
+    assert pm25.state == "71"
+    assert pm25.attributes["device_class"] == "pm25"
+    assert pm25.attributes["unit_of_measurement"].endswith("g/m³")
+    # v7 is now mapped, so it no longer shows up as a raw diagnostic pin.
+    assert hass.states.get("sensor.windmill_pin_v7") is None
+    assert "deprecated constant" not in caplog.text
 
 
 async def test_aqi_pin_hidden_from_getall_is_fetched_individually(
