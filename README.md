@@ -215,7 +215,7 @@ pytest
 ```
 
 The suite runs the integration end-to-end against a mocked cloud (config flow,
-entities, reauth that keeps the model, fan/preset/switch writes, the category-driven auto preset, the
+entities, reauth that keeps the model and reloads once, fan/preset/switch writes, the category-driven auto preset, the
 getAll-omission fallback, the category label override, offline handling), plus
 pure unit tests for the category → AQI → speed mapping and hysteresis.
 
