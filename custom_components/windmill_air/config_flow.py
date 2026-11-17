@@ -69,6 +69,9 @@ USER_SCHEMA = vol.Schema(
 )
 
 
+REAUTH_SCHEMA = vol.Schema({vol.Required(CONF_TOKEN): str})
+
+
 async def _validate_token(hass, token: str) -> dict[str, Any]:
     """Check the token against the Windmill cloud; return the pin snapshot."""
     api = WindmillAirApi(async_get_clientsession(hass), token)
@@ -125,10 +128,10 @@ class WindmillConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(), data={CONF_TOKEN: token}
+                    self._get_reauth_entry(), data_updates={CONF_TOKEN: token}
                 )
         return self.async_show_form(
-            step_id="reauth_confirm", data_schema=USER_SCHEMA, errors=errors
+            step_id="reauth_confirm", data_schema=REAUTH_SCHEMA, errors=errors
         )
 
     @staticmethod

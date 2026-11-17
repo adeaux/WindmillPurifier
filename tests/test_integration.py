@@ -108,6 +108,50 @@ async def test_config_flow_bad_token(hass: HomeAssistant, aioclient_mock) -> Non
     assert result["errors"] == {"base": "invalid_auth"}
 
 
+async def test_reauth_keeps_model_and_changes_only_token(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    """Reauth must update the token without dropping the stored model."""
+    entry = await _setup_entry(
+        hass, aioclient_mock, data={"token": TOKEN, "model": "sap1v1"}
+    )
+    result = await entry.start_reauth_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    # The reauth form asks for the token only (no model dropdown).
+    assert list(result["data_schema"].schema) == ["token"]
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"token": "new-token-456"}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data == {"token": "new-token-456", "model": "sap1v1"}
+
+
+async def test_reauth_bad_token_keeps_entry_data(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"token": TOKEN, "model": "sap1v1"},
+        title="Windmill",
+    )
+    entry.add_to_hass(hass)
+    aioclient_mock.get(
+        f"{BASE}/isHardwareConnected", status=400, text="Invalid token."
+    )
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"token": "bad"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": "invalid_auth"}
+    assert entry.data == {"token": TOKEN, "model": "sap1v1"}
+
+
 async def _setup_entry(hass, aioclient_mock, options=None, data=None) -> MockConfigEntry:
     mock_cloud(aioclient_mock)
     entry = MockConfigEntry(
