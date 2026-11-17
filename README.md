@@ -27,7 +27,7 @@ There's a community integration for the Windmill **AC**, but nothing for the
   (V1) that reads a live 0–500 index matching the number shown in the Windmill app.
 - **Switches** — child lock, display auto-dim, beep (audible feedback)
 - **Diagnostic sensors** for every unmapped datastream, to help map other units
-- UI config flow (just paste your device Auth Token) with reauth support
+- UI config flow (just paste your device Auth Token) with a token-only reauth flow that keeps your chosen model and pin settings
 - All pins remappable via the options flow, for units that differ
 
 ## Supported devices
@@ -215,7 +215,7 @@ pytest
 ```
 
 The suite runs the integration end-to-end against a mocked cloud (config flow,
-entities, fan/preset/switch writes, the category-driven auto preset, the
+entities, reauth that keeps the model and reloads once, fan/preset/switch writes, the category-driven auto preset, the
 getAll-omission fallback, the category label override, offline handling), plus
 pure unit tests for the category → AQI → speed mapping and hysteresis.
 

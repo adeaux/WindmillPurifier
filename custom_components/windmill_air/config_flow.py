@@ -69,6 +69,9 @@ USER_SCHEMA = vol.Schema(
 )
 
 
+REAUTH_SCHEMA = vol.Schema({vol.Required(CONF_TOKEN): str})
+
+
 async def _validate_token(hass, token: str) -> dict[str, Any]:
     """Check the token against the Windmill cloud; return the pin snapshot."""
     api = WindmillAirApi(async_get_clientsession(hass), token)
@@ -124,11 +127,20 @@ class WindmillConfigFlow(ConfigFlow, domain=DOMAIN):
             except WindmillApiError:
                 errors["base"] = "cannot_connect"
             else:
-                return self.async_update_reload_and_abort(
-                    self._get_reauth_entry(), data={CONF_TOKEN: token}
-                )
+                entry = self._get_reauth_entry()
+                # Change only the token so the stored model survives. The
+                # update listener in __init__ reloads the entry when its data
+                # changes, so do not also reload from the flow (Home Assistant
+                # rejects that pairing from 2026.12). If the same token was
+                # entered again nothing changed and no listener fires, so
+                # reload here to recover an entry stuck in an auth error.
+                if not self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_TOKEN: token}
+                ):
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_abort(reason="reauth_successful")
         return self.async_show_form(
-            step_id="reauth_confirm", data_schema=USER_SCHEMA, errors=errors
+            step_id="reauth_confirm", data_schema=REAUTH_SCHEMA, errors=errors
         )
 
     @staticmethod

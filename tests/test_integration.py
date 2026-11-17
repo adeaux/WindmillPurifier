@@ -1,5 +1,7 @@
 """End-to-end tests for the Windmill Air Purifier integration (mocked cloud)."""
 
+from unittest.mock import patch
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -10,6 +12,7 @@ from custom_components.windmill_air.const import DOMAIN
 
 BASE = "https://dashboard.windmillair.com/external/api"
 TOKEN = "test-token-123"
+SETUP_ENTRY = "custom_components.windmill_air.async_setup_entry"
 
 # v0 power, v1 numeric AQI, v3 mode (speed 2 of 4), v4 sleep sub-mode,
 # v5 LED fade, v6 beep, v11 child lock, v16 AQI category (getAll returns the
@@ -106,6 +109,85 @@ async def test_config_flow_bad_token(hass: HomeAssistant, aioclient_mock) -> Non
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reauth_keeps_model_and_changes_only_token(
+    hass: HomeAssistant, aioclient_mock, caplog
+) -> None:
+    """Reauth must update the token without dropping the stored model."""
+    entry = await _setup_entry(
+        hass, aioclient_mock, data={"token": TOKEN, "model": "sap1v1"}
+    )
+    result = await entry.start_reauth_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    # The reauth form asks for the token only (no model dropdown).
+    assert list(result["data_schema"].schema) == ["token"]
+
+    with patch(SETUP_ENTRY, return_value=True) as mock_setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": "new-token-456"}
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data == {"token": "new-token-456", "model": "sap1v1"}
+    # The update listener reloads the entry; the flow must not reload it again.
+    assert mock_setup.call_count == 1
+    # Home Assistant 2026.6+ warns (and 2026.12 fails) when a flow reloads an
+    # entry that already has an update listener.
+    assert "update listener" not in caplog.text
+
+
+async def test_reauth_same_token_still_reloads_once(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    """Entering the unchanged token must still reload, to clear an auth error."""
+    entry = await _setup_entry(
+        hass, aioclient_mock, data={"token": TOKEN, "model": "sap1v1"}
+    )
+    result = await entry.start_reauth_flow(hass)
+    with patch(SETUP_ENTRY, return_value=True) as mock_setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"token": TOKEN}
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data == {"token": TOKEN, "model": "sap1v1"}
+    assert mock_setup.call_count == 1
+
+
+async def test_options_change_reloads_once(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    entry = await _setup_entry(hass, aioclient_mock)
+    with patch(SETUP_ENTRY, return_value=True) as mock_setup:
+        hass.config_entries.async_update_entry(entry, options={"power_pin": "v9"})
+        await hass.async_block_till_done()
+    assert mock_setup.call_count == 1
+
+
+async def test_reauth_bad_token_keeps_entry_data(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"token": TOKEN, "model": "sap1v1"},
+        title="Windmill",
+    )
+    entry.add_to_hass(hass)
+    aioclient_mock.get(
+        f"{BASE}/isHardwareConnected", status=400, text="Invalid token."
+    )
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"token": "bad"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": "invalid_auth"}
+    assert entry.data == {"token": TOKEN, "model": "sap1v1"}
 
 
 async def _setup_entry(hass, aioclient_mock, options=None, data=None) -> MockConfigEntry:
